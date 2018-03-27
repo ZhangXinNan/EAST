@@ -1,3 +1,4 @@
+#encoding=utf8
 import cv2
 import time
 import math
@@ -26,7 +27,7 @@ def get_images():
     :return: list of files found
     '''
     files = []
-    exts = ['jpg', 'png', 'jpeg', 'JPG']
+    exts = ['jpg', 'png', 'jpeg', 'JPG', 'JPEG']
     for ext in exts:
         files += glob.glob(os.path.join(FLAGS.test_data_path, '*.' + ext))
     print('Find {} images'.format(len(files)))
@@ -43,13 +44,13 @@ def resize_image(im, max_side_len=2400):
     resize_h, resize_w = h, w = im.shape[:2]
 
     # limit the max side
-    if max(resize_h, resize_w) > max_side_len:
-        ratio = float(max_side_len) / max(resize_w, resize_h)
-        resize_h = int(resize_h * ratio)
-        resize_w = int(resize_w * ratio)
+    if max(h, w) > max_side_len:
+        ratio = float(max_side_len) / max(h, w)
+        resize_h = int(h * ratio)
+        resize_w = int(w * ratio)
 
-    resize_h = ((resize_h + 3) // 32) * 32
-    resize_w = ((resize_w + 3) // 32) * 32
+    resize_h = ((resize_h + 16) // 32) * 32
+    resize_w = ((resize_w + 16) // 32) * 32
     im = cv2.resize(im, (int(resize_w), int(resize_h)))
 
     return im, (resize_h / float(h), resize_w / float(w))
@@ -101,6 +102,12 @@ def detect(score_map, geo_map, timer, score_map_thresh=0.8, box_thresh=0.1, nms_
 
 
 def sort_poly(p):
+    '''
+    设四个点的坐标分别为A(x1,y1),B(x2,y2),C(x3,y3),D(x4,y4)
+    第一步求xi+yi最小的点pmin。
+    第二步按照原来点的顺序从pmin开头。
+    第三步A与B之间的垂直距离大于水平距离的话，将顺序调整为ADCB
+    '''
     min_axis = np.argmin(np.sum(p, axis=1))
     p = p[[min_axis, (min_axis+1)%4, (min_axis+2)%4, (min_axis+3)%4]]
     if abs(p[0, 0] - p[1, 0]) > abs(p[0, 1] - p[1, 1]):
@@ -111,7 +118,6 @@ def sort_poly(p):
 
 def main(argv=None):
     os.environ['CUDA_VISIBLE_DEVICES'] = FLAGS.gpu_list
-
 
     try:
         os.makedirs(FLAGS.output_dir)
@@ -134,8 +140,7 @@ def main(argv=None):
             print('Restore from {}'.format(model_path))
             saver.restore(sess, model_path)
 
-            im_fn_list = get_images()
-            for im_fn in im_fn_list:
+            for im_fn in get_images():
                 im = cv2.imread(im_fn)[:, :, ::-1]
                 start_time = time.time()
                 im_resized, (ratio_h, ratio_w) = resize_image(im)
@@ -151,7 +156,7 @@ def main(argv=None):
 
                 if boxes is not None:
                     boxes = boxes[:, :8].reshape((-1, 4, 2))
-                    boxes[:, :, 0] /= ratio_w
+                    boxes[:, :, 0] /= ratio_w # 计算在原始图像中的位置
                     boxes[:, :, 1] /= ratio_h
 
                 duration = time.time() - start_time
@@ -161,8 +166,7 @@ def main(argv=None):
                 if boxes is not None:
                     res_file = os.path.join(
                         FLAGS.output_dir,
-                        '{}.txt'.format(
-                            os.path.basename(im_fn).split('.')[0]))
+                        '{}.txt'.format(os.path.basename(im_fn).split('.')[0]))
 
                     with open(res_file, 'w') as f:
                         for box in boxes:
@@ -173,7 +177,7 @@ def main(argv=None):
                             f.write('{},{},{},{},{},{},{},{}\r\n'.format(
                                 box[0, 0], box[0, 1], box[1, 0], box[1, 1], box[2, 0], box[2, 1], box[3, 0], box[3, 1],
                             ))
-                            cv2.polylines(im[:, :, ::-1], [box.astype(np.int32).reshape((-1, 1, 2))], True, color=(255, 255, 0), thickness=1)
+                            cv2.polylines(im[:, :, ::-1], [box.astype(np.int32).reshape((-1, 1, 2))], True, color=(255, 0, 0), thickness=1)
                 if not FLAGS.no_write_images:
                     img_path = os.path.join(FLAGS.output_dir, os.path.basename(im_fn))
                     cv2.imwrite(img_path, im[:, :, ::-1])

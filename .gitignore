@@ -105,3 +105,9 @@ ENV/
 
 # result files for demo
 static/results
+
+# Mac
+.DS_Store
+
+# Model
+models/
