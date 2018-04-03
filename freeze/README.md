@@ -19,6 +19,7 @@ python freeze.py \
 ```
 python load.py \
     --frozen_model_filename ../models/east_icdar2015_resnet_v1_50_rbox_ckpt/freeze_model.pb \
-    --image ../demo/010.png \
-    --name feature_fusion/concat_3:0
+    --image ../training_samples/img_1.jpg \
+    --name feature_fusion/concat_3:0 \
+    --out_dir ./
 ```
