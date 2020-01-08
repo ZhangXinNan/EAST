@@ -105,3 +105,5 @@ ENV/
 
 # result files for demo
 static/results
+
+.idea/
